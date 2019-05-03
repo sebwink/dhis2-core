@@ -70,6 +70,9 @@ import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 
+import static org.hisp.dhis.analytics.ColumnDataType.TEXT;
+import static org.hisp.dhis.analytics.util.AnalyticsSqlUtils.quote;
+
 /**
  * @author Lars Helge Overland
  */
@@ -427,7 +430,7 @@ public abstract class AbstractJdbcTableManager
             throw new IllegalStateException( "Analytics table dimensions contain duplicates: " + duplicates );
         }
     }
-
+    
     /**
      * Filters out analytics table columns which were created
      * after the time of the last successful resource table update.
@@ -464,6 +467,14 @@ public abstract class AbstractJdbcTableManager
         jdbcTemplate.execute( sql );
 
         log.info( String.format( "%s done in: %s", logMessage, timer.stop().toString() ) );
+    }
+
+    List<AnalyticsTableColumn> addPeriodColumns( String prefix )
+    {
+        return PeriodType.getAvailablePeriodTypes().stream().map( pt -> {
+            String column = quote( pt.getName().toLowerCase() );
+            return new AnalyticsTableColumn( column, TEXT, prefix + "." + column );
+        } ).collect( Collectors.toList() );
     }
 
     // -------------------------------------------------------------------------

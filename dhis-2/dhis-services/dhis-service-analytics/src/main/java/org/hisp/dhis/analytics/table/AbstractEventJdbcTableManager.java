@@ -29,13 +29,17 @@ package org.hisp.dhis.analytics.table;
  */
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 
+import org.hisp.dhis.analytics.AnalyticsTableColumn;
 import org.hisp.dhis.analytics.AnalyticsTablePartition;
+import org.hisp.dhis.analytics.AnalyticsTableUpdateParams;
 import org.hisp.dhis.analytics.ColumnDataType;
 import org.hisp.dhis.common.ValueType;
 import org.hisp.dhis.commons.util.ConcurrentUtils;
+import org.hisp.dhis.commons.util.TextUtils;
 import org.springframework.scheduling.annotation.Async;
 
 /**
@@ -121,6 +125,10 @@ public abstract class AbstractEventJdbcTableManager
         {
             return "ST_GeomFromGeoJSON('{\"type\":\"Point\", \"coordinates\":' || (" + columnName + ") || ', \"crs\":{\"type\":\"name\", \"properties\":{\"name\":\"EPSG:4326\"}}}')";
         }
+        else if ( valueType.isOrganisationUnit() )
+        {
+            return "ou.name from organisationunit ou where ou.uid = (select " + columnName ;
+        }
         else
         {
             return columnName;
@@ -140,5 +148,34 @@ public abstract class AbstractEventJdbcTableManager
         }
 
         return null;
+    }
+
+    void populateTableInternal( AnalyticsTablePartition partition, List<AnalyticsTableColumn> columns,
+        String joinStatement )
+    {
+
+        final String tableName = partition.getTempTableName();
+
+        String sql = "insert into " + partition.getTempTableName() + " (";
+
+        validateDimensionColumns( columns );
+
+        for ( AnalyticsTableColumn col : columns )
+        {
+            sql += col.getName() + ",";
+        }
+
+        sql = TextUtils.removeLastComma( sql ) + ") select ";
+
+        for ( AnalyticsTableColumn col : columns )
+        {
+            sql += col.getAlias() + ",";
+        }
+
+        sql = TextUtils.removeLastComma( sql ) + " ";
+
+        sql += joinStatement;
+
+        invokeTimeAndLog( sql, String.format( "Populate %s", tableName ) );
     }
 }
